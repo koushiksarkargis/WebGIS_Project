@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "MurshidabadHQ",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::3857" } },
+"features": [
+{ "type": "Feature", "properties": { "OBJECTID": 285, "AREA": 0.0, "PERIMETER": 0.0, "INDIADPT_": 259, "INDIADPT_I": 1745, "HQ": "BAHARAMPUR", "TOWN": "BAHARAMPUR", "STATE": "WEST BENGAL", "TALUK": "BAHARAMPUR", "DISTRICT": "MURSHIDABAD" }, "geometry": { "type": "Point", "coordinates": [ 9826868.582618875429034, 2765725.280304238200188 ] } }
+]
+}
