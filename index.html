@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGIS Portal</title>
+    <link rel="stylesheet" href="ol.css">
+    <link rel="stylesheet" href="ol-ext.min.css">
+    <style>
+        *{
+            box-sizing: border-box;
+        }
+        html{
+            height: 100%;
+        }
+        body{
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            height: 100%;
+            margin: 0;
+        }
+        #header{
+            background-color: #006d77;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            height: 80px;
+            text-align: center;
+            font-size: 16px;
+            color: whitesmoke;
+        }
+        #mapContent{
+            height: calc(100% - 120px);
+            position: absolute;
+            top: 80px;
+            left: 0;
+            right: 15%;
+            padding: 4px;
+        }
+        #rightPanel{
+            background-color: #cdeac0;
+            height: 100%;
+            width: 15%;
+            right: 0;
+            position: fixed;
+            top:80px;
+            border-left: 5px solid #16425b;
+        }
+        #footer{
+            background-color: #0081a7;
+            position: fixed;
+            bottom: 0;
+            height: 40px;
+            width: 100%;
+        }
+        .mpClass{
+            float: center;
+            text-align: center;
+            color: whitesmoke;
+            padding: 10px 0px;
+            margin-right: 5px;
+        }
+        #blockname{
+            position: absolute;
+            right: 20px;
+            bottom: 8px;
+            color: whitesmoke;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 20px;
+        }
+        #subdistrict{
+            position: absolute;
+            right: 20px;
+            bottom: 8px;
+            color: whitesmoke;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 20px;}
+            #popup{
+            position: absolute;
+            background-color: white;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid #cccccc;
+            bottom: 12px;
+            left: -50px;
+            min-width: 280px;
+        }
+        #popup:after{
+            top: 100%;
+            border: solid transparent;
+            content: " ";
+            height: 0;
+            width: 0;
+            position: absolute;
+            pointer-events: none;
+            border-top-color: white;
+            border-width: 10px;
+            left: 48px;
+            margin-left: -10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- WebPage Header -->
+    <div id="header">
+        <h1>WebGIS of Murshidabad District</h1>
+    </div>
+    <!-- Map Area -->
+    <div id="mapContent"></div>
+    <!--Right Side Panel-->
+    <div id="rightPanel">
+        <h4>Show/Hide Basemap Layer</h4>
+        <input type="radio" name="BasemapShowHide" value="" onchange="changeBaseLayer(this)">None <br>
+        <input type="radio" name="BasemapShowHide" value="OSM Layer" checked onchange="changeBaseLayer(this)">OSM Layer <br>
+        <input type="radio" name="BasemapShowHide" value="Google Map" onchange="changeBaseLayer(this)">Google Tile Map <br>
+        <input type="radio" name="BasemapShowHide" value="Google Satellite Map" onchange="changeBaseLayer(this)">Google Satellite Map <br>
+        <input type="radio" name="BasemapShowHide" value="Esri Imagery" onchange="changeBaseLayer(this)">Esri Imagery Layer <br>
+        <hr>
+        <input type="range" id="changeOpacity" min="0" max="100" value="100" step="10" >
+        <span id="opacityValue"></span>
+        <hr>
+        <h3>Vector Layer On/Off</h3>
+        <input type="checkbox" class="vectorLayers" value="MurshidabadMajorTowns">Major Towns <br>
+        <input type="checkbox" class="vectorLayers" value="MurshidabadHQ">Headquarter <br>
+        <input type="checkbox" class="vectorLayers" value="Murshidabad Rail">Railway <br>
+        <input type="checkbox" class="vectorLayers" value="Murshidabad Roads">Road <br>
+        <input type="checkbox" class="vectorLayers" value="Murshidabad Village">Village Boundary<br>
+        <input type="checkbox" class="vectorLayers" value="Murshidabad SubDistrict">Sub-district Boundary<br>
+        <input type="checkbox" class="vectorLayers" value="Murshidabad District" checked>District Boundary<br>
+        <hr>
+        <b> Measurment</b><br><br>
+        <b>Measurment Type</b><br>
+        <input type="radio" id="measure" name="measure" value="Polygon" onchange="onchangeevent(this)">Area
+        <input type="radio" id="measure" name = "measure" value="LineString"  onchange="onchangeevent(this)">Line
+        <br><br>
+        <b>Result</b><br>
+        <p id="result"></p>
+        <button id="exitmeasurement"> Exit Measurement</button>
+    </div>
+    <!-- Footer -->
+    <div id="footer">
+        <span id="mp" class="mpClass"></span>
+        <span id="subdistrict"></span>
+    </div>
+    <div id="popup">
+        <div id="popupcontent">My Popup</div>
+    </div>
+    <script src="ol.js"></script>
+    <script src="ol-ext.min.js"></script>
+    <script>
+        var map = new ol.Map({
+            view: new ol.View({
+                center: [9822472.331,2768277.167],
+                zoom: 9
+            }),
+            target: 'mapContent'
+        });
+        var osmLayer = new ol.layer.Tile({
+            source: new ol.source.OSM(),
+            visible: true,
+            opacity:1,
+            title: 'OSM Layer'
+        });
+
+        var GoogleMap = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url:'https://mt1.google.com/vt/lyrs=r&x={x}&y={y}&z={z}'
+            }),
+            visible: false,
+            opacity: 1,
+            title:'Google Map'
+        });
+        var GoogleSatelliteMap = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url:'http://www.google.cn/maps/vt?lyrs=s@189&gl=cn&x={x}&y={y}&z={z}'
+            }),
+            visible: false,
+            opacity: 1,
+            title:'Google Satellite Map'
+        });
+        var EsriImagery = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+                url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+            }),
+            visible: false,
+            opacity: 1,
+            title:'Esri Imagery'
+        });
+        var tilelayerGroup = new ol.layer.Group({
+            layers: [osmLayer,GoogleMap,GoogleSatelliteMap,EsriImagery]
+        })
+        map.addLayer(tilelayerGroup)
+        function changeBaseLayer(element){
+            tilelayerGroup.getLayers().forEach(function(x){
+                x.setVisible(x.get('title') === element.value)
+            })
+        }
+      
+    var changeOpacityElement = document.getElementById('changeOpacity');
+    changeOpacityElement.addEventListener('change', function(){
+        var elementvalue = this.value;
+        tilelayerGroup.getLayers().forEach(function(y){
+            y.setOpacity((elementvalue/100))
+    })
+    var spanElement = document.getElementById('opacityValue')
+      spanElement.innerText = (elementvalue/100)
+});
+
+// Adding Vector Layers
+var Murshidabad = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            url: 'Murshidabad.geojson',
+            format: new ol.format.GeoJSON()
+        }),
+        title: 'Murshidabad District',
+        visible: true,
+        style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color:'red',
+                width: 2,
+                lineDash:[20,20,30,10]
+            }),
+        })
+    });
+    // Style for Subdistrict
+    var SubdistrictStyle = function(feature){
+        var area = feature.get('Shape_Area');
+        if (area >= 871126937.55 && area <= 880631305.81){
+            return new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color:'#b2df8a'
+                }),
+                stroke: new ol.style.Stroke({
+                    color:'#232323',
+                    width: 1.5
+                })
+            })
+        }
+        else if (area >= 880631305.81 && area <= 981688976.21){
+            return new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color:'#50127b'
+                }),
+                stroke: new ol.style.Stroke({
+                    color:'#232323',
+                    width: 1.5
+                })
+            })
+        }
+        else if (area >= 981688976.21 && area <= 1079988878.86){
+            return new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color:'#b6377a'
+                }),
+                stroke: new ol.style.Stroke({
+                    color:'#232323',
+                    width: 1.5
+                })
+            })
+        }
+        else if (area >= 1079988878.86 && area <= 1131283577.76){
+            return new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color:'#fb8761'
+                }),
+                stroke: new ol.style.Stroke({
+                    color:'#232323',
+                    width: 1.5
+                })
+            })
+        }
+        else {
+            return new ol.style.Style({
+                fill: new ol.style.Fill({
+                    color:'#fcfdbf'
+                }),
+                stroke: new ol.style.Stroke({
+                    color:'#232323',
+                    width: 1.5
+                })
+            })
+        }
+    }
+    var MurshidabadSubDist = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            url: 'MurshidabadSubDistrict.geojson',
+            format: new ol.format.GeoJSON()
+        }),
+        title: 'Murshidabad SubDistrict',
+        visible: false,
+        style: SubdistrictStyle
+    });
+    var MurshidabadVillage = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            url: 'MurshidabadVillage.geojson',
+            format: new ol.format.GeoJSON()
+        }),
+        title: 'Murshidabad Village',
+        visible: false,
+        style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: '#058c42',
+                width: 2
+            })
+        })
+    });
+
+    // Style for Road Layer
+    var roadstyleFunction = function(feature,resolution) {
+        var zoom = map.getView().getZoom();
+
+    
+    var labelText = '';
+    if (zoom >= 12) { 
+        labelText = feature.get('RTT_DESCRI');
+    }
+    return new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color: '#01161e',
+                width: 4
+            }),
+            text: new ol.style.Text({
+            text: labelText, 
+            font: '14px Times New Roman', 
+            fill: new ol.style.Fill({ color: '#e63946' }), 
+            stroke: new ol.style.Stroke({ color: 'white', width: 1 }),
+            offsetX: 0, 
+            offsetY: -12, 
+            textAlign: 'center', 
+            textBaseline: 'middle', 
+            rotation: 0
+        })
+    });
+};
+        
+    var MurshidabadRoads = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            url: 'MurshidabadRoads.geojson',
+            format: new ol.format.GeoJSON()
+        }),
+        title: 'Murshidabad Roads',
+        visible: false,
+        style: roadstyleFunction
+        });
+// Style for Railway Layer
+        var railstyleFunction = function(feature,resolution) {
+        var zoom = map.getView().getZoom();
+
+    
+    var labelText = '';
+    if (zoom >= 10) { 
+        labelText = feature.get('EXS_DESCRI');
+    }
+    return new ol.style.Style({
+        stroke: new ol.style.Stroke({
+                color: 'orange',
+                width: 4
+            }),
+            text: new ol.style.Text({
+            text: labelText, 
+            font: '14px Times New Roman', 
+            fill: new ol.style.Fill({ color: 'black' }), 
+            stroke: new ol.style.Stroke({ color: 'white', width: 2 }),
+            offsetX: 0, 
+            offsetY: -12, 
+            textAlign: 'center', 
+            textBaseline: 'middle', 
+            rotation: 0
+        })
+    });
+};
+        var MurshidabadRails = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            url: 'MurshidabadRail.geojson',
+            format: new ol.format.GeoJSON()
+        }),
+        title: 'Murshidabad Rail',
+        visible: false,
+        style: railstyleFunction
+        });
+        // Style for MSDHQ
+        var style = new ol.style.Style({
+            image: new ol.style.Icon({
+                src: 'headquarter.png',
+                scale: 0.065
+            })
+    });
+        var MurshidabadHQ = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            url: 'MurshidabadHQ.geojson',
+            format: new ol.format.GeoJSON()
+        }),
+        title: 'MurshidabadHQ',
+        visible: false,
+        style: style
+    });
+    //Style for Major Towns
+    var style1 = new ol.style.Style({
+        image: new ol.style.Icon({
+                src: 'town.png',
+                scale: 0.065
+            })
+            });
+    var MurshidabadMajorTowns = new ol.layer.Vector({
+        source: new ol.source.Vector({
+            url: 'MurshidabadMajorTown.geojson',
+            format: new ol.format.GeoJSON()
+        }),
+        title: 'MurshidabadMajorTowns',
+        visible: false,
+        style: style1
+    });
+    var vectorLayersgroup = new ol.layer.Group({
+        layers: [Murshidabad,MurshidabadSubDist,MurshidabadVillage,MurshidabadRoads,MurshidabadRails,MurshidabadHQ,MurshidabadMajorTowns]
+    });
+    map.addLayer(vectorLayersgroup);
+    var CKboxElements = document.querySelectorAll('.vectorLayers');
+    for(var CKboxElement of CKboxElements){
+        CKboxElement.addEventListener('change', function(){
+            var CKboxElementvalue = this.value;
+            //alert(CKboxElementvalue);
+            var activeLayer;
+            vectorLayersgroup.getLayers().forEach(function(layer){
+                if (layer.get('title') === CKboxElementvalue){
+                    activeLayer = layer
+                }
+            });
+            if(this.checked){
+                activeLayer.setVisible(true)
+            }
+            else{
+                activeLayer.setVisible(false)
+            }
+        });
+    }
+    var mousePosition = new ol.control.MousePosition({
+        projection: 'EPSG:4326',
+        coordinateFormat: function(coord){
+            return ol.coordinate.toStringHDMS(coord,2)
+        },
+        target: 'mp',
+        className: 'mpClass'
+    });
+    map.addControl(mousePosition);
+    var scaleLine = new ol.control.ScaleLine();
+    //map.addControl(scaleLine);
+    var zoomToextentcontrol = new ol.control.ZoomToExtent({
+        extent: [9788789.233,2717079.310,9869850.797,2861188.757]
+    });
+    map.addControl(zoomToextentcontrol);
+
+    var spansubdistrict = document.getElementById('subdistrict')
+    map.on('pointermove', function(evt){
+    var pixel = evt.pixel;
+    var clickCordinate = evt.coordinate;
+    map.forEachFeatureAtPixel(pixel, function(feature,layer){
+        var subdistrictname = feature.get('TEHSIL');
+        spansubdistrict.innerText = subdistrictname;
+    })
+});
+
+var popupdiv = document.getElementById('popup')
+var popupcontentdiv = document.getElementById('popupcontent')
+
+var popupOverlay = new ol.Overlay({
+        element: popupdiv,
+    });
+map.addOverlay(popupOverlay)
+
+map.on('click',function(evt){
+    var coord = evt.coordinate
+   map.forEachFeatureAtPixel(evt.pixel, function(feature,layer){
+    var majortown = feature.get('name_of_to');
+    popupcontentdiv.innerHTML = 'Major Town: ' + majortown 
+    popupOverlay.setPosition(coord)
+   })
+});
+var measureLayer = new ol.layer.Vector({
+            source: new ol.source.Vector()
+        });
+        map.addLayer(measureLayer);
+        var mResultElem = document.getElementById('result');
+        var measuringtool;
+        var value; 
+        var measurment;
+
+        function onchangeevent(elem){
+            value = elem.value;
+            var enablemeasuringTool = function(){
+                map.removeInteraction(measuringtool);
+                measuringtool = new ol.interaction.Draw({
+                    source: measureLayer.getSource(),
+                    type:value
+                })
+            var munit;
+            var areaunit
+            measuringtool.on('drawstart', function(evt){
+                evt.feature.on('change', function(event){
+                    if (value=='Polygon'){
+                        measurment = event.target.getGeometry().getArea();
+                        areaunit = '<sup>2</sup>'
+                    }
+                    else{
+                        measurment = event.target.getGeometry().getLength();
+                        areaunit = ''
+                    }
+                    
+                    if(measurment > 100){
+                        munit = (measurment/1000).toFixed(2) + 'km'
+                    }
+                    else {
+                        munit = measurment.toFixed(2) + 'm'
+                    }
+                    mResultElem.innerHTML = munit + areaunit;
+                })
+
+            });
+            map.addInteraction(measuringtool);
+        };
+            return enablemeasuringTool();
+        };
+        var exitMelem = document.getElementById('exitmeasurement');
+        exitMelem.addEventListener('click', function(){
+            measureLayer.getSource().clear();
+            map.removeInteraction(measuringtool);
+        });
+          // Define a new legend
+          var legend = new ol.legend.Legend({ 
+            title: 'Legend',
+            margin: 5,
+            maxWidth: 300
+        });
+        // create legend control and add on the map
+        var legendCtrl = new ol.control.Legend({
+            legend: legend,
+            collapsed: false
+        });
+        map.addControl(legendCtrl);
+         // New legend associated with District Boundary layer
+         var districtBoundaryLegend = new ol.legend.Legend({ 
+            layer: Murshidabad, 
+            margin: 4 
+        });
+        districtBoundaryLegend.addItem({ 
+            title: 'District Boundary', 
+            typeGeom: 'Polygon',
+            style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                color:'red',
+                width: 2,
+                lineDash:[20,20,30,10]
+            }),
+        })
+        });
+        legend.addItem(districtBoundaryLegend);
+
+        // New legend associated with SubDistrict Boundary layer
+        var subdistrictBoundaryLegend = new ol.legend.Legend({ 
+            layer: MurshidabadSubDist, 
+            margin: 4 
+        });
+        subdistrictBoundaryLegend.addItem({ 
+            title: 'Sub-district Boundary', 
+            typeGeom: 'Polygon',
+            style: new ol.style.Style({
+            stroke: new ol.style.Stroke({
+                    color:'#232323',
+                    width: 1.5
+                })
+            })
+        });
+            legend.addItem(subdistrictBoundaryLegend);
+
+            //// New legend associated with Village Boundary layer
+        var MSDvillageLegend = new ol.legend.Legend({ 
+            layer: MurshidabadVillage, 
+            margin: 4 
+        });
+        MSDvillageLegend.addItem({ 
+            title: 'Village Boundary', 
+            typeGeom: 'Polygon',
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color:'#058c42',
+                    width: 2
+                })
+            })
+        });
+            legend.addItem(MSDvillageLegend);
+
+            // New legend associated with road layer
+        
+            var roadlegend = new ol.legend.Legend({ 
+            layer: MurshidabadRoads , 
+            margin: 4 
+        });
+        roadlegend.addItem({ 
+            title: 'Road', 
+            typeGeom: 'MultiLineString',
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color:'#01161e',
+                    width: 4
+                })
+            })
+        });
+            legend.addItem(roadlegend);
+
+            //// New legend associated with Railway layer
+    
+            var raillegend = new ol.legend.Legend({ 
+            layer: MurshidabadRails , 
+            margin: 4 
+        });
+        raillegend.addItem({ 
+            title: 'Railway', 
+            typeGeom: 'MultiLineString',
+            style: new ol.style.Style({
+                stroke: new ol.style.Stroke({
+                    color:'orange',
+                    width: 4
+                })
+            })
+        });
+            legend.addItem(raillegend);
+
+            // New legend associated with major town layer
+            var majortownlegend = new ol.legend.Legend({ 
+            layer: MurshidabadMajorTowns , 
+            margin: 4 
+        });
+        majortownlegend.addItem({ 
+            title: 'Major Town', 
+            typeGeom: 'Point',
+            style: new ol.style.Style({
+        image: new ol.style.Icon({
+                src: 'town.png',
+                scale: 0.065
+            })
+            })
+        });
+            legend.addItem(majortownlegend);
+
+            // New legend associated with MSDHQ layer
+
+            var HQlegend = new ol.legend.Legend({ 
+            layer: MurshidabadHQ , 
+            margin: 4 
+        });
+        HQlegend.addItem({ 
+            title: 'Headquarter', 
+            typeGeom: 'Point',
+            style: new ol.style.Style({
+        image: new ol.style.Icon({
+            src: 'headquarter.png',
+            scale: 0.065
+            })
+            })
+        });
+            legend.addItem(HQlegend);
+
+    // Control Select 
+	var select = new ol.interaction.Select({
+        style: new ol.style.Style({
+            fill: new ol.style.Fill({
+                color: 'yellow'
+            })
+        })
+    });
+	map.addInteraction(select);
+	
+	// Set the control grid reference
+    var search = new ol.control.SearchFeature({
+        //target: 'sidebar',
+        source: MurshidabadVillage.getSource(),
+        label:"Search Village",
+        property: 'VILL_NAME',
+    });
+    map.addControl(search);
+
+	search.on('select', function(e) {
+		select.getFeatures().clear();
+		select.getFeatures().push (e.search);
+		var p = e.search.getGeometry().getFirstCoordinate();
+		map.getView().animate({
+            center:p,
+            duration: 1000, 
+            zoom: 14,       
+            easing: ol.easing.easeOut
+            });
+	});
+
+</script>
+    
+</body>
+</html>
